@@ -1,5 +1,3 @@
-// app/api/auth/authorize/route.ts
-
 import { NextResponse } from "next/server";
 import { randomUrlSafeString, sha256Base64url } from "@/lib/auth/crypto";
 import { COOKIE_VERIFIER, COOKIE_STATE, COOKIE_NONCE } from "@/lib/auth/cookies";
@@ -22,7 +20,7 @@ export async function GET() {
     `&state=${state}&nonce=${nonce}`;
 
   const res = NextResponse.json({ authorizeUrl });
-  const cookieOpts = { httpOnly: true, sameSite: "lax" as const, secure: true, path: "/" };
+  const cookieOpts = { httpOnly: true, sameSite: "lax" as const, path: "/" };
 
   res.cookies.set(COOKIE_VERIFIER, codeVerifier, cookieOpts);
   res.cookies.set(COOKIE_STATE, state, cookieOpts);

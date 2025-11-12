@@ -107,7 +107,7 @@ public class SecurityConfig {
             // .clientSecret(passwordEncoder.encode("my-secret"))  // ✅ BCryptでハッシュ化
             .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
             .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-            .redirectUri("http://localhost:8081/callback")
+            .redirectUri("http://localhost:3000/callback")
             .scope(OidcScopes.OPENID)
             .scope(OidcScopes.PROFILE)
             .clientSettings(clientSettings)

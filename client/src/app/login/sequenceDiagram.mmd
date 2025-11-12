@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant User as 👤 User
+    participant Client as 🖥️ Next.js Client (3000)
+    participant Auth as 🔐 Auth Server (8081)
+    participant Resource as 🗄️ Resource Server (8082)
+
+    User->>Client: ① /login ページを開く
+    Client->>Auth: ② 認可リクエスト (authorize?client_id=...&code_challenge=...)
+    Auth->>User: ログインフォーム表示
+    User->>Auth: user/password入力
+    Auth-->>Client: リダイレクト (callback?code=abc&state=xyz)
+    Client->>Auth: ③ /oauth2/token (code + code_verifier)
+    Auth-->>Client: access_token / id_token
+    Client->>User: "ログイン成功"
+
+    Note over Client,Resource: ↓ ユーザーがサンプルページを操作
+
+    Client->>Resource: /public (GET)
+    Resource-->>Client: "This is a public endpoint."
+
+    Client->>Resource: /private (GET, no token)
+    Resource-->>Client: 401 Unauthorized
+
+    Client->>Resource: /private (GET, Bearer access_token)
+    Resource-->>Client: "Hello, user! You accessed a protected resource."
