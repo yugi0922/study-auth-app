@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { extractIdTokenClaims } from "@/lib/jwt/view"; // ← 追加
 
 export default function ApiSamplePage() {
   const [message, setMessage] = useState<string>("");
@@ -29,12 +30,29 @@ export default function ApiSamplePage() {
     setMessage(`✅ /private（トークンあり）→ ${text}`);
   };
 
+  // ⭐ ID トークン（JWT）をデコードして claim を可視化する
+  const verifyIdToken = () => {
+    const idToken = sessionStorage.getItem("id_token");
+
+    if (!idToken) {
+      setMessage("⚠️ id_token が見つかりません。まずログインしてください。");
+      return;
+    }
+
+    try {
+      const claims = extractIdTokenClaims(idToken);
+      setMessage(JSON.stringify(claims, null, 2));
+    } catch (e) {
+      setMessage(`❌ id_token のデコードに失敗しました: ${(e as Error).message}`);
+    }
+  };
+
   return (
     <main className="p-8 space-y-4">
       <h1 className="text-2xl font-semibold mb-4">API連携サンプル</h1>
 
       <p className="text-gray-600">
-        下の3パターンのボタンで、Resource Serverとの連携動作を確認できます。
+        下の4パターンのボタンで、Resource ServerおよびIDトークン検証の動作を確認できます。
       </p>
 
       <div className="space-x-3">
@@ -57,6 +75,14 @@ export default function ApiSamplePage() {
           className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded"
         >
           ③ /private（トークンあり）
+        </button>
+
+        {/* ⭐ UI 追加：IDトークンの claim を可視化 */}
+        <button
+          onClick={verifyIdToken}
+          className="px-4 py-2 bg-indigo-200 hover:bg-indigo-300 rounded"
+        >
+          ④ IDトークン検証（署名＋claim確認）
         </button>
       </div>
 

@@ -35,8 +35,13 @@ export default function Callback() {
       const data: TokenResponse = await tokenRes.json();
       setResult(data);
 
-      // 学習用にアクセストークンを保存
-      sessionStorage.setItem("access_token", data.access_token);
+    // アクセストークン保存
+    sessionStorage.setItem("access_token", data.access_token);
+
+    // ★IDトークンも保存（これが必要）
+    if (data.id_token) {
+      sessionStorage.setItem("id_token", data.id_token);
+    }
     })();
   }, []);
 

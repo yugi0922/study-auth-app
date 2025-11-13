@@ -14,3 +14,9 @@ export function decodeJwtWithoutVerify(jwt: string) {
   // 3) header と payload をデコードして返す（署名はそのまま）
   return { header: decode(h), payload: decode(p), signatureB64Url: s };
 }
+
+// ID トークンの payload だけを取り出す（UI 用）
+export function extractIdTokenClaims(jwt: string) {
+  const { payload } = decodeJwtWithoutVerify(jwt);
+  return payload;
+}
