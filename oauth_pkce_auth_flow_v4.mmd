@@ -1,0 +1,81 @@
+sequenceDiagram
+    autonumber
+
+    participant User as User
+    participant Browser as Browser(Next Client)
+    participant NextS as Next Server(API Routes)
+    participant AS as Auth Server
+    participant SS as Spring Security
+    participant SAS as Spring Authorization Server
+    participant Nimbus as Nimbus(JWT)
+    participant RS as Resource Server
+
+    Note over NextS: PKCE(verifier→challenge), state, nonceを生成<br/>Cookie(httpOnly)へ保存
+
+    User ->> Browser: ログインボタンクリック
+
+    %% --- 認可リクエスト ---
+    Browser ->> AS: GET /oauth2/authorize (client_id...nonce, state)
+
+    %% --- Auth Server：ログインチェック ---
+    AS ->> SS: 認証済みか？
+    SS -->> AS: 未ログイン
+
+    SS ->> User: 自動生成ログイン画面
+    User ->> SS: POST /login (ID/PW)
+    SS ->> SS: UserDetails照合
+    SS -->> AS: 認証成功
+
+    SS ->> AS: SavedRequest復元 → /oauth2/authorize へ戻す
+    Browser ->> AS: GET /oauth2/authorize (再)
+
+    %% --- SAS：認可処理 ---
+    AS ->> SAS: 認可リクエスト検証(client_id, redirect_uri, scope)
+    SAS ->> SAS: 認可コード生成
+    SAS ->> SAS: 認可データ保存(OAuth2AuthorizationService)
+    SAS -->> Browser: 302 redirect_uri?code=AUTH_CODE&state=STATE
+
+    %% --- Next Callback ---
+    Browser ->> NextS: GET /callback (code, state)
+    NextS ->> NextS: state検証
+    NextS ->> AS: POST /oauth2/token (code + code_verifier)
+    
+    AS ->> SAS: 認可コード検証(PKCE一致, redirect_uri一致)
+    SAS ->> SAS: AccessToken/IDToken クレーム構築
+    SAS ->> Nimbus: RS256署名依頼
+    Nimbus -->> SAS: 署名済みJWT
+    SAS -->> NextS: access_token + id_token
+
+    NextS ->> Browser: Tokenを返す(JSON)
+    Browser ->> Browser: sessionStorageに保存
+
+    %% --- ユーザーがSampleページへ ---
+    User ->> Browser: /sample ページへ移動
+
+    %% --- ① public API ---
+    User ->> Browser: 「① /public」クリック
+    Browser ->> RS: GET /public
+    RS -->> Browser: Public応答
+
+    %% --- ② private/tokenなし ---
+    User ->> Browser: 「② /private tokenなし」クリック
+    Browser ->> RS: GET /private
+    RS -->> Browser: 401 Unauthorized
+
+    %% --- ③ private/tokenあり ---
+    User ->> Browser: 「③ /private tokenあり」クリック
+    Browser ->> RS: GET /private (Authorization: Bearer access_token)
+    RS ->> AS: GET /oauth2/jwks
+    AS -->> RS: JWK Set
+    RS ->> RS: AccessToken検証
+    RS -->> Browser: Private成功レスポンス
+
+    %% --- ④ ID Token 検証 ---
+    User ->> Browser: 「④ IDトークン検証」クリック
+    Browser ->> NextS: POST /api/auth/verify (id_token)
+    NextS ->> AS: GET /oauth2/jwks
+    AS -->> NextS: JWK Set
+    NextS ->> NextS: RS256署名検証 + iss/aud/exp検証
+    NextS ->> NextS: nonce検証(id_token.nonce == cookie.nonce)
+
+    NextS -->> Browser: header + payload (署名・nonce一致)

@@ -14,6 +14,7 @@ export default function LoginPage() {
   return (
     <main className="p-8">
       <h1>ログイン画面</h1>
+      {/* oauth_pkce_auth_flow１*/}
       <button
         onClick={start}
         disabled={loading}

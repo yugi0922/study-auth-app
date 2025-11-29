@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { extractIdTokenClaims } from "@/lib/jwt/view"; // ← 追加
 
 export default function ApiSamplePage() {
   const [message, setMessage] = useState<string>("");
@@ -30,8 +29,8 @@ export default function ApiSamplePage() {
     setMessage(`✅ /private（トークンあり）→ ${text}`);
   };
 
-  // ⭐ ID トークン（JWT）をデコードして claim を可視化する
-  const verifyIdToken = () => {
+  // ⭐ ここを「verify API 呼び出し版」に置き換える
+  const verifyIdToken = async () => {
     const idToken = sessionStorage.getItem("id_token");
 
     if (!idToken) {
@@ -39,12 +38,21 @@ export default function ApiSamplePage() {
       return;
     }
 
-    try {
-      const claims = extractIdTokenClaims(idToken);
-      setMessage(JSON.stringify(claims, null, 2));
-    } catch (e) {
-      setMessage(`❌ id_token のデコードに失敗しました: ${(e as Error).message}`);
+    const res = await fetch("/api/auth/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      setMessage(`❌ 検証失敗: ${data.reason}`);
+      return;
     }
+
+    // header + payload を表示（署名検証成功）
+    setMessage(JSON.stringify(data, null, 2));
   };
 
   return (
@@ -52,7 +60,12 @@ export default function ApiSamplePage() {
       <h1 className="text-2xl font-semibold mb-4">API連携サンプル</h1>
 
       <p className="text-gray-600">
-        下の4パターンのボタンで、Resource ServerおよびIDトークン検証の動作を確認できます。
+        Resource Serverとの連携、およびIDトークンの検証ができます。<br />
+        本格的なプロフィール表示は{" "}
+        <a href="/profile" className="text-blue-600 underline">
+          こちら
+        </a>
+        。
       </p>
 
       <div className="space-x-3">
@@ -77,12 +90,11 @@ export default function ApiSamplePage() {
           ③ /private（トークンあり）
         </button>
 
-        {/* ⭐ UI 追加：IDトークンの claim を可視化 */}
         <button
           onClick={verifyIdToken}
           className="px-4 py-2 bg-indigo-200 hover:bg-indigo-300 rounded"
         >
-          ④ IDトークン検証（署名＋claim確認）
+          ④ IDトークン検証（署名＋claim）
         </button>
       </div>
 

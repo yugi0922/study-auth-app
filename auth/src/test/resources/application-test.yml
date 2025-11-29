@@ -1,0 +1,9 @@
+auth:
+  server:
+    issuer: http://localhost:8081/test
+    access-token-ttl-hours: 2 # テスト用に値を変更
+    refresh-token-ttl-days: 10
+  client:
+    nextjs:
+      id: test-nextjs-client
+      redirect-uri: http://localhost:3000/test-callback

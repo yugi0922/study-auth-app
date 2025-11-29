@@ -1,0 +1,220 @@
+// package com.example.auth.config;
+
+// import java.security.KeyPair;
+// import java.security.KeyPairGenerator;
+// import java.security.interfaces.RSAPrivateKey;
+// import java.security.interfaces.RSAPublicKey;
+// import java.time.Duration;
+// import java.util.UUID;
+
+// import org.springframework.context.annotation.Bean;
+// import org.springframework.context.annotation.Configuration;
+// import org.springframework.core.Ordered;
+// import org.springframework.core.annotation.Order;
+// import org.springframework.security.config.Customizer;
+// import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+// import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+// import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+// import org.springframework.security.core.userdetails.User;
+// import org.springframework.security.core.userdetails.UserDetails;
+// import org.springframework.security.core.userdetails.UserDetailsService;
+// import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+// import org.springframework.security.crypto.password.PasswordEncoder;
+// import org.springframework.security.oauth2.core.AuthorizationGrantType;
+// import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+// import org.springframework.security.oauth2.core.oidc.OidcScopes;
+// import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationConsentService;
+// import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
+// import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+// import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+// import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
+// import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+// import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+// import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
+// import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
+// import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
+// import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
+// import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+// import org.springframework.security.web.SecurityFilterChain;
+
+// import com.nimbusds.jose.jwk.JWKSet;
+// import com.nimbusds.jose.jwk.RSAKey;
+// import com.nimbusds.jose.jwk.source.JWKSource;
+// import com.nimbusds.jose.proc.SecurityContext;
+
+// @Configuration
+// @EnableWebSecurity
+// public class SecurityConfig_bk {
+
+//     // ==========================================================
+//     // 🔹 DevTools や Next.js が勝手に叩く URL を「認証対象外」にする設定
+//     // ==========================================================
+//     @Bean
+//     public WebSecurityCustomizer webSecurityCustomizer() {
+//         return (web) -> web.ignoring()
+//             .requestMatchers("/.well-known/appspecific/**");  // ← 認証フィルタを完全スキップ
+//     }
+
+//     // ==========================================================
+//     // 🔹 Authorization Server（SAS）専用の SecurityFilterChain
+//     // ==========================================================
+//     @Bean
+//     @Order(Ordered.HIGHEST_PRECEDENCE)
+//     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+
+//         // SAS のコア機能を提供する Configurer（認可/トークン/ID Token/JWKS など）
+//         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
+//                 new OAuth2AuthorizationServerConfigurer();
+
+//         // OIDC 機能（ID Token / userinfo / jwks_uri ....）を ON にする
+//         authorizationServerConfigurer.oidc(Customizer.withDefaults());
+
+//         http
+//             // フロント（Next.js）と連携するための CORS 設定
+//             .cors(Customizer.withDefaults())
+
+//             // この FilterChain を適用する URL を「SAS のエンドポイント」に限定
+//             // → /oauth2/authorize, /oauth2/token, /oauth2/jwks, /.well-known/*
+//             .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
+
+//             // SAS のフィルタ群を HttpSecurity に組み込む
+//             // → 認可コード発行、トークン発行、ID Token 生成 がここで自動実装される
+//             .with(authorizationServerConfigurer, Customizer.withDefaults())
+
+//             // 認可リクエスト（/oauth2/authorize）に到達したら
+//             // 「ログイン済みか？」を確認する
+//             .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+
+//             // 未ログイン時は自動生成ログイン画面へ
+//             // → ログイン成功後に元のURLに戻す（OAuth の “return to original request”）
+//             .formLogin(Customizer.withDefaults());
+
+//         return http.build();
+//     }
+
+//     // ==========================================================
+//     // 🔹 通常の Web アプリ用 SecurityFilterChain（SAS 以外のURL向け）
+//     // ==========================================================
+//     @Bean
+//     @Order(2)
+//     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
+//         http
+//             .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+//             .formLogin(Customizer.withDefaults()); // 普通のフォームログイン
+//         return http.build();
+//     }
+
+//     // ==========================================================
+//     // 🔹 Authorization Server の共通設定（issuer など）
+//     // ==========================================================
+//     @Bean
+//     public AuthorizationServerSettings authorizationServerSettings() {
+//         return AuthorizationServerSettings.builder()
+//             .issuer("http://localhost:8081")  // iss に使用される値
+//             .build();
+//     }
+
+//     // ==========================================================
+//     // 🔹 Next.js クライアントアプリの設定（client_id, redirect_uri など）
+//     // ==========================================================
+//     @Bean
+//     public RegisteredClientRepository registeredClientRepository(PasswordEncoder encoder) {
+
+//         // PKCE / 同意画面などのクライアント設定
+//         ClientSettings clientSettings = ClientSettings.builder()
+//             .requireProofKey(true)              // PKCE ON
+//             .requireAuthorizationConsent(false) // 同意画面 OFF
+//             .build();
+
+//         // Access Token / Refresh Token の TTL（有効期間）
+//         TokenSettings tokenSettings = TokenSettings.builder()
+//             .accessTokenTimeToLive(Duration.ofHours(1))
+//             .refreshTokenTimeToLive(Duration.ofDays(7))
+//             .build();
+
+//         // Next.js クライアント定義
+//         RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString())
+//             .clientId("nextjs-client")
+//             .clientAuthenticationMethod(ClientAuthenticationMethod.NONE) // Public Client（フロントアプリ）
+
+//             .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+//             .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+
+//             .redirectUri("http://localhost:3000/callback") // 認可コード受け取り
+//             .scope(OidcScopes.OPENID)
+//             .scope(OidcScopes.PROFILE)
+
+//             .clientSettings(clientSettings)
+//             .tokenSettings(tokenSettings)
+//             .build();
+
+//         // メモリ上のクライアントDB
+//         return new InMemoryRegisteredClientRepository(client);
+//     }
+
+//     // ==========================================================
+//     // 🔹 認可コード / トークン の保存（InMemory）
+//     // ==========================================================
+//     @Bean
+//     public OAuth2AuthorizationConsentService authorizationConsentService() {
+//         return new InMemoryOAuth2AuthorizationConsentService();
+//     }
+
+//     @Bean
+//     public OAuth2AuthorizationService authorizationService(
+//             RegisteredClientRepository registeredClientRepository) {
+//         return new InMemoryOAuth2AuthorizationService();
+//     }
+
+//     // ==========================================================
+//     // 🔹 JWKS エンドポイントで配布する RSA 鍵ペアの生成
+//     //     → JWT (Access Token / ID Token) の署名に使う
+//     // ==========================================================
+//     @Bean
+//     public JWKSource<SecurityContext> jwkSource() throws Exception {
+
+//         // RSA 鍵ペア（公開鍵／秘密鍵）を生成
+//         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+//         keyPairGenerator.initialize(2048);
+//         KeyPair keyPair = keyPairGenerator.generateKeyPair();
+
+//         // 公開鍵（署名検証用）・秘密鍵（署名生成用）
+//         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+//         RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
+
+//         // JWK 形式に変換 → /oauth2/jwks にて公開される
+//         RSAKey rsaKey = new RSAKey.Builder(publicKey)
+//                 .privateKey(privateKey)
+//                 .keyID(UUID.randomUUID().toString()) // kid
+//                 .build();
+
+//         // 1つだけ持つ JWK Set（メモリ）
+//         JWKSet jwkSet = new JWKSet(rsaKey);
+
+//         // Nimbus に渡す JWKSource（selector が kid と一致する鍵を返す）
+//         return (selector, context) -> selector.select(jwkSet);
+//     }
+
+//     // ==========================================================
+//     // 🔹 ログインユーザーの登録（認証で使う）
+//     // ==========================================================
+//     @Bean
+//     public UserDetailsService userDetailsService(PasswordEncoder encoder) {
+//         UserDetails user = User.builder()
+//                 .username("user")
+//                 .password(encoder.encode("password"))
+//                 .roles("USER")
+//                 .build();
+
+//         // InMemoryUserDetailsManager に保存 → 認証で使われる
+//         return new InMemoryUserDetailsManager(user);
+//     }
+
+//     // ==========================================================
+//     // 🔹 パスワードのハッシュ化（ログイン用）
+//     // ==========================================================
+//     @Bean
+//     public PasswordEncoder passwordEncoder() {
+//         return new BCryptPasswordEncoder();
+//     }
+// }

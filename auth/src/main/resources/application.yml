@@ -17,3 +17,22 @@ logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.security.oauth2: DEBUG
+
+# ==========================================================
+# 💡 外部化された認証サーバー設定 (AuthServerProperties にバインド)
+# ==========================================================
+auth:
+  server:
+    # 認証サーバーのメタデータ設定 (AuthorizationServerSettings)
+    issuer: http://localhost:8081
+    
+    # トークンの有効期間設定 (TokenSettings)
+    # Durationとして扱われます (h=時間, d=日)
+    access-token-ttl-hours: 1
+    refresh-token-ttl-days: 7
+    
+  client:
+    # Next.js クライアント設定 (ClientProperties にバインド)
+    nextjs:
+      id: nextjs-client
+      redirect-uri: http://localhost:3000/callback
